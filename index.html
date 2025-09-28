@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Oculus/WebXR • Per-Eye Saturation + 3 Modes • v9</title>
+<title>Oculus/WebXR • Brightness + Per-Eye Saturation • v10</title>
 
 <script type="importmap">
 {
@@ -17,30 +17,29 @@
 <style>
   html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",sans-serif}
   #hud{position:fixed;left:16px;top:16px;z-index:20;background:rgba(0,0,0,.85);color:#fff;
-       border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px;min-width:380px;backdrop-filter:blur(4px)}
+       border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px;min-width:390px;backdrop-filter:blur(4px)}
   #hud h3{margin:0 0 8px;color:#82d0ff;font-size:15px}
   .row{display:flex;align-items:center;gap:8px;margin:6px 0;flex-wrap:wrap}
   label{font-size:12px;white-space:nowrap}
-  input[type=range]{width:190px}
+  input[type=range]{width:200px}
   .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.1);font-size:12px}
   button{appearance:none;border:0;border-radius:8px;padding:6px 10px;color:#fff;background:#3a86ff;cursor:pointer}
   button.ghost{background:#555}
-  #dbg{position:fixed;left:16px;top:200px;color:#b3e5c1;z-index:19;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;
-       background:rgba(0,0,0,.45);padding:8px 10px;border-radius:8px;min-width:380px}
+  #dbg{position:fixed;left:16px;top:210px;color:#b3e5c1;z-index:19;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;
+       background:rgba(0,0,0,.45);padding:8px 10px;border-radius:8px;min-width:390px}
   #seedCanvas{position:fixed;inset:0;display:block;z-index:10;pointer-events:auto;touch-action:none;cursor:crosshair}
   #stage{position:fixed;inset:0;z-index:0}
-  #help{position:fixed;right:16px;bottom:16px;color:#ccc;background:rgba(0,0,0,.45);padding:6px 8px;border-radius:8px;font-size:12px;z-index:5}
   .mode{display:flex;gap:10px}
   .mode label{display:flex;align-items:center;gap:6px}
 </style>
 </head>
 <body>
   <div id="hud">
-    <h3>Oculus/WebXR · 좌/우 개별 채도 + 3모드 (v9)</h3>
+    <h3>Oculus/WebXR · 명도(공통) + 좌/우 채도 (v10)</h3>
     <div class="row">시드: <span id="seedVal" class="pill">없음</span> · 점 <span id="ptCount" class="pill">0/7</span></div>
 
     <div class="row"><label>팔레트 크기: <span id="palSzVal" class="pill">240</span></label>
-      <input id="palSz" type="range" min="16" max="288" step="1" value="240">
+      <input id="palSz" type="range" min="16" max="320" step="1" value="240">
       <span id="palCount" class="pill">0색</span>
     </div>
 
@@ -53,22 +52,22 @@
 
     <div class="row"><label>수명(초): <span id="speedVal" class="pill">3.0</span></label>
       <input id="speed" type="range" min="1" max="10" step="0.5" value="3"></div>
-    <div class="row"><label>스폰주기(ms): <span id="freqVal" class="pill">900</span></label>
-      <input id="freq" type="range" min="100" max="3000" step="50" value="900"></div>
-    <div class="row"><label>동시 스폰: <span id="densVal" class="pill">2</span></label>
-      <input id="dens" type="range" min="1" max="6" step="1" value="2"></div>
+    <div class="row"><label>스폰주기(ms): <span id="freqVal" class="pill">800</span></label>
+      <input id="freq" type="range" min="100" max="3000" step="50" value="800"></div>
+    <div class="row"><label>동시 스폰: <span id="densVal" class="pill">3</span></label>
+      <input id="dens" type="range" min="1" max="8" step="1" value="3"></div>
 
     <hr style="border:none;border-top:1px solid rgba(255,255,255,.12);width:100%">
 
-    <!-- 채도 슬라이더 (기본 100%=원본, 0~250%) -->
-    <div class="row"><label>채도(공통) : <span id="satVal" class="pill">100%</span></label>
-      <input id="sat" type="range" min="0" max="250" step="5" value="100">
+    <!-- 새 컨트롤: 명도(공통) + 좌/우 채도 -->
+    <div class="row"><label>명도(공통): <span id="lightVal" class="pill">140%</span></label>
+      <input id="light" type="range" min="80" max="260" step="5" value="140">
     </div>
-    <div class="row"><label>좌안 추가 : <span id="leftSatVal" class="pill">0%</span></label>
-      <input id="leftSat" type="range" min="-50" max="150" step="5" value="0">
+    <div class="row"><label>좌안 채도: <span id="satLVal" class="pill">160%</span></label>
+      <input id="satL" type="range" min="50" max="300" step="5" value="160">
     </div>
-    <div class="row"><label>우안 추가 : <span id="rightSatVal" class="pill">0%</span></label>
-      <input id="rightSat" type="range" min="-50" max="150" step="5" value="0">
+    <div class="row"><label>우안 채도: <span id="satRVal" class="pill">120%</span></label>
+      <input id="satR" type="range" min="50" max="300" step="5" value="120">
     </div>
 
     <div class="row mode">
@@ -78,10 +77,9 @@
     </div>
   </div>
 
-  <div id="dbg">[READY] 7점을 찍어 시드를 만드세요. (클릭/터치/마우스다운 지원)</div>
+  <div id="dbg">[READY] 7점을 찍거나 바로 VR로 들어가세요(무점 시 랜덤 시드). HTTPS 필요.</div>
   <canvas id="seedCanvas"></canvas>
   <div id="stage"></div>
-  <div id="help">7점 → 시작 또는 바로 Enter VR(HTTPS). VR 입장 시 자동 스폰.</div>
 
   <!-- A. 시드/팔레트/입력 -->
   <script>
@@ -105,24 +103,19 @@
     function computeSeed(){ let s=0; state.points.forEach((p,i)=>{ s^=(((p.x|0)+(p.y|0))<<(i%24)); }); return (s>>>0)||0xA5A5A5A5; }
 
     function buildSeedAndPalette(forceRandom=false){
-      if(forceRandom && state.points.length<MAXPTS){
-        // 무점 시 자동 랜덤 시드
-        const rnd = Math.floor(Math.random()*0xffffffff)>>>0;
-        state.seed = rnd;
-      } else {
-        state.seed = computeSeed();
-      }
+      if(forceRandom && state.points.length<MAXPTS){ state.seed = (Math.random()*0xffffffff)>>>0; }
+      else { state.seed = computeSeed(); }
       $('seedVal').textContent = state.seed ?? '없음';
       const rng = mulberry32(state.seed||0xA5A5A5A5); const base = Math.floor(rng()*360);
       const N = Number($('palSz').value); const arr=[];
       for(let i=0;i<N;i++){
         const h=(base+i*(360/N) + (rng()*2-1)*8 + 360)%360;
-        const s=clamp(0.45 + rng()*0.15, 0.45, 0.60); // 기본 적당한 채도
-        const l=clamp(0.85 + rng()*0.10, 0.85, 0.95); // 매우 밝게
+        const s=clamp(0.70 + rng()*0.25, 0.70, 0.95); // 훨씬 높은 채도
+        const l=clamp(0.90 + rng()*0.08, 0.90, 0.98); // 매우 높은 명도
         arr.push(hslToHex(h,s,l));
       }
       state.palette = arr; $('palCount').textContent = arr.length+"색";
-      say(`[SEED] 밝은 팔레트 ${N}색 생성 (S 0.45~0.60, L 0.85~0.95)`);
+      say(`[SEED] 매우 밝고 선명한 팔레트 ${N}색 생성 (S 0.70~0.95, L 0.90~0.98)`);
     }
 
     function draw(){
@@ -149,94 +142,66 @@
       const now=performance.now(); if(now<lock) return; lock=now+80;
       addPoint(rel(e)); e.preventDefault?.();
     }
-    can.addEventListener('pointerdown', onAnyDown);
-    can.addEventListener('mousedown', onAnyDown);
-    can.addEventListener('click', onAnyDown);
-    can.addEventListener('touchstart', onAnyDown, {passive:false});
+    ['pointerdown','mousedown','click','touchstart'].forEach(ev=>can.addEventListener(ev,onAnyDown,{passive:false}));
     window.addEventListener('resize', fit); fit();
 
     const speedEl=$('speed'), freqEl=$('freq'), densEl=$('dens');
-    const speedVal=$('speedVal'), freqVal=$('freqVal'), densVal=$('densVal');
-    const palSz=$('palSz'), palSzVal=$('palSzVal');
-
-    const satEl=$('sat'), leftSat=$('leftSat'), rightSat=$('rightSat');
-    const satVal=$('satVal'), leftSatVal=$('leftSatVal'), rightSatVal=$('rightSatVal');
-
+    const palSz=$('palSz'), palSzVal=$('palSzVal'); const palCount=$('palCount');
+    const lightEl=$('light'), satLEl=$('satL'), satREl=$('satR');
+    const lightVal=$('lightVal'), satLVal=$('satLVal'), satRVal=$('satRVal');
     const modeRadios = Array.from(document.querySelectorAll('input[name="mode"]'));
     const modeVal = ()=> (modeRadios.find(r=>r.checked)?.value||'bias');
 
     function syncUI(){
-      speedVal.textContent=speedEl.value; freqVal.textContent=freqEl.value; densVal.textContent=densEl.value;
+      document.getElementById('speedVal').textContent=speedEl.value;
+      document.getElementById('freqVal').textContent=freqEl.value;
+      document.getElementById('densVal').textContent=densEl.value;
       palSzVal.textContent=palSz.value;
-      satVal.textContent=satEl.value+"%"; leftSatVal.textContent=leftSat.value+"%"; rightSatVal.textContent=rightSat.value+"%";
-      window.dispatchEvent(new CustomEvent('ui:sat-change')); // 실시간 반영
+      lightVal.textContent=lightEl.value+"%";
+      satLVal.textContent=satLEl.value+"%";
+      satRVal.textContent=satREl.value+"%";
+      window.dispatchEvent(new CustomEvent('ui:changed'));
     }
     ['input','change'].forEach(ev=>{
-      [speedEl,freqEl,densEl,palSz,satEl,leftSat,rightSat].forEach(el=>el.addEventListener(ev,()=>{
-        if(el===palSz){ if(state.points.length===MAXPTS || state.seed!=null) buildSeedAndPalette(true); }
+      [speedEl,freqEl,densEl,palSz,lightEl,satLEl,satREl].forEach(el=>el.addEventListener(ev,()=>{
+        if(el===palSz){ if(state.seed!=null || state.points.length>0) buildSeedAndPalette(true); }
         syncUI();
       }));
-      modeRadios.forEach(r=>r.addEventListener(ev, syncUI));
+      modeRadios.forEach(r=>r.addEventListener(ev,syncUI));
     });
     syncUI();
 
     $('startBtn').onclick=()=>{
       if(state.seed==null){ buildSeedAndPalette(true); }
-      if(!state.running){ state.running=true; say("[RUN] 시작"); can.style.display="none"; window.dispatchEvent(new CustomEvent('app:start')); }
+      if(!state.running){ state.running=true; can.style.display="none"; window.dispatchEvent(new CustomEvent('app:start')); say("[RUN] 시작"); }
     };
     $('stopBtn').onclick=()=>{ state.running=false; say("[STOP] 중지"); };
     $('resetBtn').onclick=()=>{ state.running=false; state.seed=null; state.palette=[]; state.points=[];
-      $('ptCount').textContent="0/7"; $('seedVal').textContent="없음"; $('palCount').textContent="0색";
+      $('ptCount').textContent="0/7"; $('seedVal').textContent="없음"; palCount.textContent="0색";
       can.style.display="block"; draw(); say("[RESET] 초기화"); };
 
     window.AppXR = { state, say,
-      ui:{ speedEl,freqEl,densEl, satEl,leftSat,rightSat, modeVal },
-      util:{ buildSeedAndPalette }
-    };
+      ui:{ speedEl,freqEl,densEl, lightEl,satLEl,satREl, modeVal },
+      util:{ buildSeedAndPalette } };
   })();
   </script>
 
-  <!-- B. XR 렌더/후처리(채도 전용 Shader) -->
+  <!-- B. XR 렌더 (후처리 제거, 메시 셰이더로 채도/명도) -->
   <script type="module">
   import * as THREE from 'three';
   import { VRButton } from 'three/addons/webxr/VRButton.js';
-  import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-  import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-  import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-
-  // 간단 채도 셰이더
-  const SaturationShader = {
-    uniforms: { tDiffuse: { value: null }, saturation: { value: 1.0 } },
-    vertexShader: /* glsl */`
-      varying vec2 vUv;
-      void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
-    `,
-    fragmentShader: /* glsl */`
-      uniform sampler2D tDiffuse;
-      uniform float saturation;
-      varying vec2 vUv;
-      vec3 sat(vec3 c, float s){
-        float luma = dot(c, vec3(0.299, 0.587, 0.114));
-        return mix(vec3(luma), c, s);
-      }
-      void main(){
-        vec4 col = texture2D(tDiffuse, vUv);
-        col.rgb = sat(col.rgb, saturation);
-        gl_FragColor = col;
-      }
-    `
-  };
 
   const { state, say, ui, util } = window.AppXR;
-  const { speedEl, freqEl, densEl, satEl, leftSat, rightSat, modeVal } = ui;
+  const { speedEl, freqEl, densEl, lightEl, satLEl, satREl, modeVal } = ui;
 
   const stage=document.getElementById('stage');
-  const renderer=new THREE.WebGLRenderer({antialias:true});
+  const renderer=new THREE.WebGLRenderer({antialias:true, alpha:false});
   renderer.setPixelRatio(Math.min(devicePixelRatio||1, 1.8));
   renderer.setSize(innerWidth,innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.25; // 조금 더 밝게
+  const BASE_EXPOSURE = 1.30; // 기본 노출
+  renderer.toneMappingExposure = BASE_EXPOSURE * (Number(lightEl.value)/100);
   renderer.xr.enabled=true;
   renderer.xr.setReferenceSpaceType('local-floor');
   stage.appendChild(renderer.domElement);
@@ -247,159 +212,135 @@
   const baseCam=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,2000);
   baseCam.position.set(0,1.4,4); scene.add(baseCam);
 
-  // 더 밝은 조명
-  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-  const hemi = new THREE.HemisphereLight(0xffffff, 0x222244, 0.9); scene.add(hemi);
-  const dir = new THREE.DirectionalLight(0xffffff, 1.2); dir.position.set(2,4,3); scene.add(dir);
+  // 더 밝은 조명 + 약간의 에미시브를 쓸 것이므로 전체적으로 훨씬 밝음
+  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x223355, 0.9); scene.add(hemi);
+  const dir = new THREE.DirectionalLight(0xffffff, 1.35); dir.position.set(2,4,3); scene.add(dir);
 
   const group=new THREE.Group(); scene.add(group);
   let cubes=[];
 
+  // MeshStandardMaterial에 채도 유니폼 삽입
+  function makeSatStandard(color){
+    const mat = new THREE.MeshStandardMaterial({
+      color, metalness:0.04, roughness:0.38,
+      transparent:true, opacity:1.0,
+      emissive: color.clone().multiplyScalar(0.35), emissiveIntensity: 1.0
+    });
+    mat.onBeforeCompile = (shader)=>{
+      shader.uniforms.uSat = { value: 1.6 }; // 기본 좌안 160%
+      mat.userData.shader = shader;
+      shader.fragmentShader = shader.fragmentShader.replace(
+        'gl_FragColor = vec4( outgoingLight, diffuseColor.a );',
+        `
+        float luma = dot(outgoingLight, vec3(0.299,0.587,0.114));
+        vec3 satcol = mix(vec3(luma), outgoingLight, uSat);
+        gl_FragColor = vec4(satcol, diffuseColor.a);
+        `
+      );
+    };
+    // 셰이더 캐시 키 (동일 셰이더 재사용)
+    mat.customProgramCacheKey = ()=>'satstd_v1';
+    return mat;
+  }
+
   function colorFromPalette(rng){ return new THREE.Color(state.palette[Math.floor(rng()*state.palette.length)]||"#ffffff"); }
   function mulberry32(a){return function(){let t=a+=0x6D2B79F5;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};}
 
-  // 정면 접근(멀리서 → 사용자)
+  // 정면 접근 + 더 큰 박스
   function createBox(rng){
-    const sx = 0.25 + rng()*0.75;
-    const sy = 0.25 + rng()*0.75;
-    const sz = 0.25 + rng()*1.20;
+    const sx = 0.8 + rng()*1.4; // 더 큼 (0.8~2.2)
+    const sy = 0.8 + rng()*1.4;
+    const sz = 0.8 + rng()*1.8;
     const g = new THREE.BoxGeometry(sx, sy, sz);
     const col = colorFromPalette(rng);
-    const m = new THREE.MeshStandardMaterial({
-      color: col, metalness: 0.05, roughness: 0.45,
-      transparent: true, opacity: 1.0,
-      emissive: col.clone().multiplyScalar(0.25), emissiveIntensity: 0.6
-    });
+    const m = makeSatStandard(col);
     const mesh = new THREE.Mesh(g, m);
 
-    const zStart = -14 - rng()*6;         // 더 멀리서 시작
+    const zStart = -18 - rng()*8;            // 훨씬 멀리
     const xStart = (rng()-0.5)*3.2;
-    const yStart = (rng()-0.5)*2.0;
+    const yStart = (rng()-0.5)*2.2;
     mesh.position.set(xStart, yStart, zStart);
     mesh.rotation.set(rng()*Math.PI, rng()*Math.PI, rng()*Math.PI);
 
-    const lifeMs = Number(speedEl.value)*1000;
-    const lifeS  = Math.max(lifeMs/1000, 0.5);
-    const zEnd   =  2.8;
-    const velZ   = (zEnd - zStart) / lifeS;
-    const velX   = (rng()*0.16 - 0.08);
-    const swayA  = 0.06 + rng()*0.10;     // Y 흔들림 낮춤(춤추는 느낌 최소화)
-    const swayHz = 0.5 + rng()*0.6;
+    const lifeMs = Number(speedEl.value)*1000, lifeS=Math.max(lifeMs/1000,0.5);
+    const zEnd = 3.0, velZ = (zEnd - zStart)/lifeS;
+    const velX = (rng()*0.16 - 0.08);
+    const swayA = 0.05 + rng()*0.09, swayHz = 0.45 + rng()*0.6;
 
-    mesh.userData = {
-      zEnd, velZ, velX,
-      yBase: yStart, swayA, swayHz, phase: rng()*Math.PI*2,
-      dieAt: performance.now() + lifeMs, lifeTotal: lifeMs
+    // per-eye 채도 업데이트: onBeforeRender 훅
+    let leftCamUUID=null, rightCamUUID=null;
+    mesh.onBeforeRender = (renderer, scene, camera)=>{
+      const sh = mesh.material.userData.shader; if(!sh) return;
+      let satFactor = 1.0;
+      if(renderer.xr.isPresenting){
+        const xrCam = renderer.xr.getCamera(baseCam);
+        leftCamUUID  = leftCamUUID  || (xrCam.cameras[0]?.uuid || null);
+        rightCamUUID = rightCamUUID || (xrCam.cameras[1]?.uuid || null);
+        const isLeft = (camera.uuid === leftCamUUID);
+        const mode = modeVal();
+        const L = Math.max(0, Number(satLEl.value))/100;
+        const R = Math.max(0, Number(satREl.value))/100;
+        if(mode==='viewL') satFactor = L;
+        else if(mode==='viewR') satFactor = R;
+        else satFactor = isLeft ? L : R;
+      } else {
+        // MONO 모드에선 좌안 값을 사용
+        satFactor = Math.max(0, Number(satLEl.value))/100;
+      }
+      sh.uniforms.uSat.value = satFactor;
     };
 
+    mesh.userData = { zEnd, velZ, velX, yBase:yStart, swayA, swayHz, phase:rng()*Math.PI*2,
+                      dieAt:performance.now()+lifeMs, lifeTotal:lifeMs };
     group.add(mesh); cubes.push(mesh);
   }
 
-  function spawn(now){
-    if(!state.palette.length){ return; }
-    if(!state.running) return;
-    const base=(state.seed^(now|0))>>>0;
-    const rng = mulberry32(base);
-    for(let i=0;i<Number(densEl.value);i++) createBox(rng);
-  }
-  window.addEventListener('app:start', ()=>{ spawn(performance.now()); });
-
-  // ===== Per-eye composers (채도 전용) =====
-  const compL = new EffectComposer(renderer);
-  const passL = new RenderPass(scene, baseCam);
-  const satPassL = new ShaderPass(SaturationShader); satPassL.renderToScreen = true;
-  compL.addPass(passL); compL.addPass(satPassL);
-
-  const compR = new EffectComposer(renderer);
-  const passR = new RenderPass(scene, baseCam);
-  const satPassR = new ShaderPass(SaturationShader); satPassR.renderToScreen = true;
-  compR.addPass(passR); compR.addPass(satPassR);
-
-  function setSaturation(pct, isLeft){
-    // pct: 0~250 → 0.0~2.5 배
-    const f = Math.max(0, pct) / 100;
-    (isLeft ? satPassL : satPassR).uniforms.saturation.value = f;
+  function spawn(now, burst=1){
+    if(!state.palette.length || !state.running) return;
+    const base=(state.seed^(now|0))>>>0; const rng = mulberry32(base);
+    const n = Number(densEl.value) * burst;
+    for(let i=0;i<n;i++) createBox(rng);
   }
 
-  function renderXRPerEye(){
-    const xrCam = renderer.xr.getCamera(baseCam);
-    const gl = renderer.getContext();
-    const totalW = gl.drawingBufferWidth, totalH = gl.drawingBufferHeight;
-    compL.setSize(totalW,totalH); compR.setSize(totalW,totalH);
-    renderer.setScissorTest(true);
-
-    const mode = modeVal();
-    const basePct = Number(satEl.value);
-    const lPct = basePct + Number(leftSat.value);
-    const rPct = basePct + Number(rightSat.value);
-
-    for(let i=0;i<2;i++){
-      const sub = xrCam.cameras[i];
-      const vp = sub.viewport;
-      let camToUse = sub;
-      if(mode==='viewL') camToUse = xrCam.cameras[0];
-      else if(mode==='viewR') camToUse = xrCam.cameras[1];
-
-      renderer.setViewport(vp.x, vp.y, vp.z, vp.w);
-      renderer.setScissor(vp.x, vp.y, vp.z, vp.w);
-
-      const pct = (mode==='bias') ? (i===0?lPct:rPct) : (mode==='viewL'?lPct:rPct);
-      passL.camera = camToUse; passR.camera = camToUse;
-      setSaturation(pct, i===0);
-
-      if(i===0) compL.render(); else { renderer.clearDepth(); compR.render(); }
-    }
-    renderer.setScissorTest(false);
-  }
-
-  function renderMono(){
-    const w = renderer.domElement.width, h = renderer.domElement.height;
-    compL.setSize(w,h);
-    setSaturation(Number(satEl.value), true);
-    passL.camera = baseCam; compL.render();
-  }
-
-  // UI에서 채도 변경 시 즉시 반영
-  window.addEventListener('ui:sat-change', ()=>{
-    setSaturation(Number(satEl.value) + Number(leftSat.value), true);
-    setSaturation(Number(satEl.value) + Number(rightSat.value), false);
-  });
-
-  // VR 세션 진입 시 자동 스폰 & 자동 실행
+  // VR 세션 시작 시 자동 실행 + 초기 벌스트 스폰
   renderer.xr.addEventListener('sessionstart', ()=>{
     if(state.seed==null || !state.palette.length){ util.buildSeedAndPalette(true); }
-    // 시드 캔버스 숨김 + 실행
-    const sc = document.getElementById('seedCanvas'); if(sc) sc.style.display='none';
+    document.getElementById('seedCanvas').style.display='none';
     state.running = true;
-    setTimeout(()=>spawn(performance.now()), 50);
+    spawn(performance.now(), 3); // 초기 다량 스폰
+    say("[XR] 세션 시작: 자동 실행/스폰");
   });
 
+  // UI 변화 → 명도/채도 실시간 반영
+  window.addEventListener('ui:changed', ()=>{
+    renderer.toneMappingExposure = BASE_EXPOSURE * (Number(lightEl.value)/100);
+  });
+
+  // 수동 시작(PC 미리보기용)
+  window.addEventListener('app:start', ()=>{ spawn(performance.now(), 1); });
+
   // 메인 루프
-  let prevTime = performance.now(), lastSpawn = 0;
+  let prevTime=performance.now(), lastSpawn=0;
   function loop(now){
     const dt = Math.min((now - prevTime)/1000, 0.05); prevTime = now;
 
     if(state.running){
       const freq = Number(freqEl.value);
-      if(now - lastSpawn >= freq){ spawn(now); lastSpawn = now; }
+      if(now - lastSpawn >= freq){ spawn(now, 1); lastSpawn = now; }
     }
 
     const t = performance.now();
     for(let i=cubes.length-1;i>=0;i--){
-      const m = cubes[i], u = m.userData;
+      const m=cubes[i], u=m.userData;
+      m.rotation.x += 0.55*dt; m.rotation.y += 0.48*dt;
+      u.phase += dt*2*Math.PI*u.swayHz;
+      m.position.z += u.velZ*dt;
+      m.position.x += u.velX*dt;
+      m.position.y = u.yBase + Math.sin(u.phase)*u.swayA;
 
-      m.rotation.x += 0.6 * dt;
-      m.rotation.y += 0.5 * dt;
-
-      u.phase += dt * 2*Math.PI * u.swayHz;
-      m.position.z += u.velZ * dt;
-      m.position.x += u.velX * dt;
-      m.position.y = u.yBase + Math.sin(u.phase) * u.swayA;
-
-      let alpha = THREE.MathUtils.clamp((u.dieAt - t) / u.lifeTotal, 0, 1);
-      if(m.position.z >= u.zEnd){
-        alpha *= (1 - THREE.MathUtils.clamp((m.position.z - u.zEnd)/0.8, 0, 1));
-      }
+      let alpha = THREE.MathUtils.clamp((u.dieAt - t)/u.lifeTotal, 0, 1);
+      if(m.position.z >= u.zEnd){ alpha *= (1 - THREE.MathUtils.clamp((m.position.z - u.zEnd)/0.8, 0, 1)); }
       m.material.opacity = alpha;
 
       if(alpha<=0.01 || t>=u.dieAt || m.position.z>u.zEnd+1.0){
@@ -407,23 +348,33 @@
       }
     }
 
-    if(renderer.xr.isPresenting) renderXRPerEye(); else renderMono();
+    renderer.render(scene, baseCam);
 
     document.getElementById('dbg').textContent =
-      `[${renderer.xr.isPresenting?'XR':'MONO'}] cubes=${cubes.length} mode=${modeVal()} sat=${satEl.value}% L+=${leftSat.value}% R+=${rightSat.value}%`;
+      `[${renderer.xr.isPresenting?'XR':'MONO'}] cubes=${cubes.length} `+
+      `light=${document.getElementById('light').value}% `+
+      `satL=${document.getElementById('satL').value}% satR=${document.getElementById('satR').value}% `+
+      `mode=${modeVal()}`;
   }
   renderer.setAnimationLoop(loop);
 
   window.addEventListener('resize', ()=>{
     renderer.setSize(innerWidth,innerHeight,false);
     baseCam.aspect = innerWidth/innerHeight; baseCam.updateProjectionMatrix();
-    compL.setSize(innerWidth,innerHeight); compR.setSize(innerWidth,innerHeight);
   });
 
+  // VR 버튼 + 보조 버튼
   const vrBtn = VRButton.createButton(renderer);
   vrBtn.style.position='fixed'; vrBtn.style.right='16px'; vrBtn.style.top='16px'; vrBtn.style.zIndex='30';
   document.body.appendChild(vrBtn);
   document.getElementById('enterVR').onclick = ()=> vrBtn.click();
+
+  // 환경 체크
+  if(!('xr' in navigator)){
+    say("이 브라우저는 WebXR을 지원하지 않습니다. Oculus Browser/HTTPS를 사용하세요.");
+  } else {
+    say("READY: VR 버튼으로 입장(HTTPS 필요). 입장 시 자동 실행/스폰됩니다.");
+  }
   </script>
 </body>
 </html>
