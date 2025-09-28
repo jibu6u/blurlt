@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Oculus/WebXR • Per-Eye Blur + 3 Modes • v7</title>
+<title>Oculus/WebXR • Per-Eye Blur + 3 Modes • v8</title>
 
 <script type="importmap">
 {
@@ -36,7 +36,7 @@
 </head>
 <body>
   <div id="hud">
-    <h3>Oculus/WebXR · 좌/우 개별 블러 + 3모드 (v7)</h3>
+    <h3>Oculus/WebXR · 좌/우 개별 블러 + 3모드 (v8)</h3>
     <div class="row">시드: <span id="seedVal" class="pill">없음</span> · 점 <span id="ptCount" class="pill">0/7</span></div>
 
     <div class="row"><label>팔레트 크기: <span id="palSzVal" class="pill">240</span></label>
@@ -109,8 +109,8 @@
       const N = Number($('palSz').value); const arr=[];
       for(let i=0;i<N;i++){
         const h=(base+i*(360/N) + (rng()*2-1)*8 + 360)%360;
-        const s=clamp(0.35 + rng()*0.20, 0.35, 0.55); // 과채도 제거
-        const l=clamp(0.70 + rng()*0.15, 0.70, 0.85); // 밝게
+        const s=Math.max(0.35, Math.min(0.55, 0.35 + rng()*0.20)); // 채도 낮춤
+        const l=Math.max(0.70, Math.min(0.85, 0.70 + rng()*0.15)); // 밝게
         arr.push(hslToHex(h,s,l));
       }
       state.palette = arr; $('palCount').textContent = arr.length+"색";
@@ -153,6 +153,7 @@
     const blurEl=$('blur'), blurVal=$('blurVal');
     const leftBias=$('leftBias'), leftBiasVal=$('leftBiasVal');
     const rightBias=$('rightBias'), rightBiasVal=$('rightBiasVal');
+
     const modeRadios = Array.from(document.querySelectorAll('input[name="mode"]'));
     const modeVal = ()=> (modeRadios.find(r=>r.checked)?.value||'bias');
 
@@ -202,7 +203,7 @@
   renderer.setSize(innerWidth,innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.2;
+  renderer.toneMappingExposure = 1.15;
   renderer.xr.enabled=true;
   renderer.xr.setReferenceSpaceType('local-floor');
   stage.appendChild(renderer.domElement);
@@ -214,7 +215,7 @@
   baseCam.position.set(0,1.4,4); scene.add(baseCam);
 
   const hemi = new THREE.HemisphereLight(0xffffff, 0x222244, 1.0); scene.add(hemi);
-  const dir = new THREE.DirectionalLight(0xffffff, 1.1); dir.position.set(2,4,3); scene.add(dir);
+  const dir = new THREE.DirectionalLight(0xffffff, 1.05); dir.position.set(2,4,3); scene.add(dir);
   const grid = new THREE.GridHelper(20, 20, 0x444444, 0x222222); grid.position.y = -1.5; scene.add(grid);
 
   const group=new THREE.Group(); scene.add(group);
@@ -223,7 +224,7 @@
   function colorFromPalette(rng){ return new THREE.Color(state.palette[Math.floor(rng()*state.palette.length)]||"#ffffff"); }
   function mulberry32(a){return function(){let t=a+=0x6D2B79F5;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};}
 
-  // === 좌↔우로 "지나가는" 경로 ===
+  // === "멀리서 -> 나에게" 직선 접근 ===
   function createBox(rng){
     const sx = 0.25 + rng()*0.75;
     const sy = 0.25 + rng()*0.75;
@@ -232,23 +233,25 @@
     const m = new THREE.MeshStandardMaterial({ color: colorFromPalette(rng), metalness:0.05, roughness:0.6, transparent:true, opacity:1 });
     const mesh = new THREE.Mesh(g, m);
 
-    // 카메라 전방 가까운 깊이에서 수평 횡단
-    const sideSign = rng()<0.5 ? -1 : 1;
-    const xStart = sideSign<0 ? -6.0 : 6.0;
-    const xEnd   = -xStart;
-    const zBase  = -1.6 + rng()*0.4;   // -2.0 ~ -1.2 (정면 약간 앞)
-    const yBase  = (rng()-0.5)*1.8;    // 약간 위/아래
-    mesh.position.set(xStart, yBase, zBase);
+    // Z 멀리서 시작, X/Y는 약간 랜덤
+    const zStart = -12 - rng()*6;     // -12 ~ -18
+    const xStart = (rng()-0.5)*2.8;   // 좌우 약간 퍼짐
+    const yStart = (rng()-0.5)*1.8;
+    mesh.position.set(xStart, yStart, zStart);
     mesh.rotation.set(rng()*Math.PI, rng()*Math.PI, rng()*Math.PI);
 
+    // 수명 동안 zEnd로 접근하도록 속도 설정
     const lifeMs = Number(speedEl.value)*1000;
     const lifeS  = Math.max(lifeMs/1000, 0.5);
-    const vx = (xEnd - xStart) / lifeS;   // 수명 동안 한 번에 반대편으로
-    const swayAmp = 0.15 + rng()*0.25;
-    const swayHz  = 0.6 + rng()*0.9;
+    const zEnd   =  2.6;                         // 카메라 앞까지
+    const velZ   = (zEnd - zStart) / lifeS;      // 초당 z 증가량
+    const velX   = (rng()*0.16 - 0.08);          // 가벼운 좌우 드리프트
+    const swayA  = 0.08 + rng()*0.12;            // Y 미세 흔들림
+    const swayHz = 0.5 + rng()*0.6;
 
     mesh.userData = {
-      vx, zBase, yBase, swayAmp, swayHz, phase: rng()*Math.PI*2,
+      zStart, zEnd, velZ, velX,
+      yBase: yStart, swayA, swayHz, phase: rng()*Math.PI*2,
       dieAt: performance.now() + lifeMs, lifeTotal: lifeMs
     };
 
@@ -330,23 +333,26 @@
     for(let i=cubes.length-1;i>=0;i--){
       const m = cubes[i], u = m.userData;
 
-      // 회전
+      // 회전: 자연스럽게
       m.rotation.x += 0.6 * dt;
       m.rotation.y += 0.5 * dt;
 
-      // 수평 횡단 + 약한 상하 흔들림 + 살짝의 깊이 웨이브
+      // 정면 접근 (Z+) + 약한 좌우 드리프트 + Y 미세 흔들림
       u.phase += dt * 2*Math.PI * u.swayHz;
-      m.position.x += u.vx * dt;
-      m.position.y = u.yBase + Math.sin(u.phase) * u.swayAmp;
-      m.position.z = u.zBase + Math.sin(u.phase*0.5)*0.05;
+      m.position.z += u.velZ * dt;
+      m.position.x += u.velX * dt;
+      m.position.y = u.yBase + Math.sin(u.phase) * u.swayA;
 
-      // 페이드아웃(수명 기반)
+      // 페이드아웃(수명 기반 & zEnd 도달)
       const lifeLeft = (u.dieAt - t) / u.lifeTotal;
-      const alpha = THREE.MathUtils.clamp(lifeLeft, 0, 1);
+      let alpha = THREE.MathUtils.clamp(lifeLeft, 0, 1);
+      if(m.position.z >= u.zEnd){
+        const k = THREE.MathUtils.clamp((m.position.z - u.zEnd)/0.8, 0, 1);
+        alpha *= (1 - k);
+      }
       m.material.opacity = alpha;
 
-      // 제거: 수명 종료 또는 너무 멀리 벗어나면
-      if(alpha<=0.01 || t>=u.dieAt || Math.abs(m.position.x)>8.5){
+      if(alpha<=0.01 || t>=u.dieAt || m.position.z>u.zEnd+1.0){
         group.remove(m); m.geometry.dispose(); m.material.dispose(); cubes.splice(i,1);
       }
     }
