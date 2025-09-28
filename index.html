@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Oculus/WebXR • Per-Eye Blur + 3 Modes • v5</title>
+  <title>Oculus/WebXR • Per-Eye Blur + 3 Modes • v6</title>
 
-  <!-- Import Map: three / addons 경로 지정 (모듈 로딩 실패 방지) -->
+  <!-- Import Map: three / addons 경로 지정 -->
   <script type="importmap">
   {
     "imports": {
@@ -37,7 +37,7 @@
 </head>
 <body>
   <div id="hud">
-    <h3>Oculus/WebXR · 좌/우 개별 블러 + 3모드 (v5)</h3>
+    <h3>Oculus/WebXR · 좌/우 개별 블러 + 3모드 (v6)</h3>
     <div class="row">시드: <span id="seedVal" class="pill">없음</span> · 점 <span id="ptCount" class="pill">0/7</span></div>
 
     <div class="row"><label>팔레트 크기: <span id="palSzVal" class="pill">240</span></label>
@@ -83,7 +83,7 @@
   <div id="stage"></div>
   <div id="help">7점 → 시작 → Enter VR(HTTPS 권장). 좌/우 별도 뷰포트 렌더 + 개별 블러.</div>
 
-  <!-- (A) 시드/팔레트/버튼: 모듈 없이 선실행 -->
+  <!-- ① 시드/팔레트/버튼(모듈 없이 선실행) -->
   <script>
     (function(){
       const $=id=>document.getElementById(id);
@@ -179,7 +179,7 @@
     })();
   </script>
 
-  <!-- (B) XR 렌더/후처리: 좌/우 뷰포트별 렌더 + 개별 블러 + 3모드 -->
+  <!-- ② XR 렌더/후처리: 좌/우 뷰포트별 렌더 + 개별 블러 + 3모드 + 드리프트 이동 -->
   <script type="module">
     import * as THREE from 'three';
     import { VRButton } from 'three/addons/webxr/VRButton.js';
@@ -201,7 +201,6 @@
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     stage.appendChild(renderer.domElement);
 
-    // 장면/카메라/조명
     const scene=new THREE.Scene();
     scene.background = new THREE.Color(0x000000);
 
@@ -210,8 +209,6 @@
 
     const hemi = new THREE.HemisphereLight(0xffffff, 0x222244, 1.0); scene.add(hemi);
     const dir = new THREE.DirectionalLight(0xffffff, 1.0); dir.position.set(2,4,3); scene.add(dir);
-
-    // 약간의 레퍼런스 격자/바닥(검은 화면 방지)
     const grid = new THREE.GridHelper(20, 20, 0x444444, 0x222222); grid.position.y = -1.5; scene.add(grid);
 
     const group=new THREE.Group(); scene.add(group);
@@ -223,53 +220,61 @@
     function mulberry32(a){return function(){let t=a+=0x6D2B79F5;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};}
 
     function createBox(rng){
-      // 랜덤 직육면체 + 채워진 표면 재질
       const sx = 0.25 + rng()*0.75;
       const sy = 0.25 + rng()*0.75;
       const sz = 0.25 + rng()*1.20;
       const g = new THREE.BoxGeometry(sx, sy, sz);
-      const col = colorFromPalette(rng);
-      const m = new THREE.MeshStandardMaterial({
-        color: col, metalness: 0.05, roughness: 0.6
-      });
+      const m = new THREE.MeshStandardMaterial({ color: colorFromPalette(rng), metalness:0.05, roughness:0.6, transparent:true, opacity:1 });
       const mesh = new THREE.Mesh(g, m);
+
       mesh.position.set((rng()-0.5)*3.0, (rng()-0.5)*2.0, -10 - rng()*10);
       mesh.rotation.set(rng()*Math.PI, rng()*Math.PI, rng()*Math.PI);
-      mesh.userData = { velZ: 1.5 + rng()*1.5, dieAt: performance.now() + Number(speedEl.value)*1000 };
-      group.add(mesh);
-      cubes.push(mesh);
+
+      const sideSign = rng() < 0.5 ? -1 : 1;
+      const velSide  = (0.40 + rng()*0.80) * sideSign;
+      const velDepth = 0.08 + rng()*0.18;
+
+      mesh.userData = {
+        vel: new THREE.Vector3(velSide, 0, velDepth),
+        baseY: mesh.position.y,
+        swayAmp: 0.25 + rng()*0.35,
+        swayFreq: 0.8 + rng()*1.2,
+        phase: rng()*Math.PI*2,
+        lifeStart: performance.now(),
+        lifeTotal: Number(speedEl.value)*1000,
+        dieAt: performance.now() + Number(speedEl.value)*1000
+      };
+
+      group.add(mesh); cubes.push(mesh);
     }
 
     function spawn(now){
       if(!state.seed || !state.palette.length || !state.running) return;
       const base=(state.seed^(now|0))>>>0;
       const rng = mulberry32(base);
-      const n = Number(densEl.value);
-      for(let i=0;i<n;i++) createBox(rng);
+      for(let i=0;i<Number(densEl.value);i++) createBox(rng);
     }
-
-    // 시작 시 즉시 한 번 스폰 (빈 화면 방지)
     window.addEventListener('app:start', ()=>{ spawn(performance.now()); });
 
-    // per-eye composers (좌/우 각각)
+    // per-eye composers
     const compL = new EffectComposer(renderer);
     const passL = new RenderPass(scene, baseCam);
-    const hL = new ShaderPass(HorizontalBlurShader), vL = new ShaderPass(VerticalBlurShader);
-    vL.renderToScreen = true; compL.addPass(passL); compL.addPass(hL); compL.addPass(vL);
+    const hL = new ShaderPass(HorizontalBlurShader), vL = new ShaderPass(VerticalBlurShader); vL.renderToScreen = true;
+    compL.addPass(passL); compL.addPass(hL); compL.addPass(vL);
 
     const compR = new EffectComposer(renderer);
     const passR = new RenderPass(scene, baseCam);
-    const hR = new ShaderPass(HorizontalBlurShader), vR = new ShaderPass(VerticalBlurShader);
-    vR.renderToScreen = true; compR.addPass(passR); compR.addPass(hR); compR.addPass(vR);
+    const hR = new ShaderPass(HorizontalBlurShader), vR = new ShaderPass(VerticalBlurShader); vR.renderToScreen = true;
+    compR.addPass(passR); compR.addPass(hR); compR.addPass(vR);
 
     function setBlur(pct, w, h, isLeft){
-      const amt = pct * 0.1; // 간단한 튜닝 계수
+      const amt = pct * 0.1;
       (isLeft?hL:hR).uniforms.h.value = (amt)/(w||1);
       (isLeft?vL:vR).uniforms.v.value = (amt)/(h||1);
     }
 
     function renderXRPerEye(){
-      const xrCam = renderer.xr.getCamera(baseCam); // ArrayCamera
+      const xrCam = renderer.xr.getCamera(baseCam);
       const gl = renderer.getContext();
       const totalW = gl.drawingBufferWidth, totalH = gl.drawingBufferHeight;
 
@@ -285,73 +290,84 @@
 
       for(let i=0;i<2;i++){
         const sub = xrCam.cameras[i];
-        const vp = sub.viewport; // {x,y,z:width,w:height}
+        const vp = sub.viewport;
 
-        // 모드별 카메라 선택
         let camToUse = sub;
         if(mode==='viewL') camToUse = xrCam.cameras[0];
         else if(mode==='viewR') camToUse = xrCam.cameras[1];
 
-        // 해당 눈의 렌더 영역 지정
         renderer.setViewport(vp.x, vp.y, vp.z, vp.w);
         renderer.setScissor(vp.x, vp.y, vp.z, vp.w);
 
-        // 블러 강도 결정
-        const pct = (mode==='bias')
-          ? (i===0 ? lPct : rPct)        // 좌/우 가중치
-          : (mode==='viewL' ? lPct : rPct); // 단안 보기에서도 좌/우 기준치 유지
+        const pct = (mode==='bias') ? (i===0?lPct:rPct) : (mode==='viewL'?lPct:rPct);
 
-        // 카메라/블러 동기화 후 렌더
         passL.camera = camToUse;
         passR.camera = camToUse;
+
         setBlur(pct, vp.z, vp.w, i===0);
 
         if(i===0) compL.render();
-        else { renderer.clearDepth(); compR.render(); } // 깊이 버퍼 간섭 방지
+        else { renderer.clearDepth(); compR.render(); }
       }
       renderer.setScissorTest(false);
     }
 
     function renderMono(){
-      // 비XR(모니터)일 때: 기본 블러만 전체 화면에 적용
       const w = renderer.domElement.width, h = renderer.domElement.height;
       compL.setSize(w,h); setBlur(Number(blurEl.value), w,h, true);
       passL.camera = baseCam; compL.render();
     }
 
+    let prevTime = performance.now();
     function loop(now){
-      // 스폰
+      const dt = Math.min((now - prevTime)/1000, 0.05); // s
+      prevTime = now;
+
       if(state.running){
         const freq = Number(freqEl.value);
-        if(now % freq < 16) spawn(now); // 대략적인 주기 유지
+        if(now % freq < 16) spawn(now);
       }
-      // 업데이트
-      const t=performance.now();
+
+      const t = performance.now();
       for(let i=cubes.length-1;i>=0;i--){
-        const m=cubes[i];
-        m.rotation.x += 0.02; m.rotation.y += 0.018;
-        m.position.z += m.userData.velZ * 0.016 * 60;
-        if(t>=m.userData.dieAt || m.position.z > 4){
+        const m = cubes[i], u = m.userData;
+
+        // 회전(느리게)
+        m.rotation.x += 0.6 * dt;
+        m.rotation.y += 0.5 * dt;
+
+        // 상하 흔들림 + 측면 드리프트 + 아주 약한 전진
+        u.phase += dt * 2*Math.PI * u.swayFreq;
+        m.position.y = u.baseY + Math.sin(u.phase) * u.swayAmp;
+        m.position.addScaledVector(u.vel, dt);
+
+        // 페이드아웃
+        const lifeLeft = (u.dieAt - t) / u.lifeTotal;
+        let alpha = THREE.MathUtils.clamp(lifeLeft, 0, 1);
+        const ax = Math.abs(m.position.x);
+        if(ax > 3.0){ alpha *= (1 - THREE.MathUtils.clamp((ax-3.0)/1.2, 0, 1)); }
+        if(m.position.z > 2.5){ alpha *= (1 - THREE.MathUtils.clamp((m.position.z-2.5)/1.5, 0, 1)); }
+        m.material.opacity = alpha;
+
+        // 제거
+        if(alpha <= 0.01 || t >= u.dieAt || ax > 4.5 || m.position.z > 4.0){
           group.remove(m); m.geometry.dispose(); m.material.dispose(); cubes.splice(i,1);
         }
       }
-      // 렌더
+
       if(renderer.xr.isPresenting) renderXRPerEye(); else renderMono();
 
-      // 디버그 텍스트
       document.getElementById('dbg').textContent =
         `[${renderer.xr.isPresenting?'XR':'MONO'}] cubes=${cubes.length} mode=${modeVal()} blur=${blurEl.value}% L+=${leftBias.value}% R+=${rightBias.value}%`;
     }
     renderer.setAnimationLoop(loop);
 
-    // 리사이즈
     window.addEventListener('resize', ()=>{
       renderer.setSize(innerWidth,innerHeight,false);
       baseCam.aspect = innerWidth/innerHeight; baseCam.updateProjectionMatrix();
       compL.setSize(innerWidth,innerHeight); compR.setSize(innerWidth,innerHeight);
     });
 
-    // VR 버튼
     const vrBtn = VRButton.createButton(renderer);
     vrBtn.style.position='fixed'; vrBtn.style.right='16px'; vrBtn.style.top='16px'; vrBtn.style.zIndex='30';
     document.body.appendChild(vrBtn);
